@@ -1,35 +1,89 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import React, { useState, useEffect } from "react";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import ProductForm from "./components/ProductForm";
+import ProductGrid from "./components/ProductGrid";
+import { fetchProducts, createProduct, deleteProduct } from "./utils/api";
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [products, setProducts] = useState([]);
+  const [showForm, setShowForm] = useState(false);
+  const [filters, setFilters] = useState({ search: "", categories: [] });
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
+  const loadProducts = async () => {
+    try {
+      const res = await fetchProducts({
+        page,
+        search: filters.search,
+        categories: filters.categories.map((c) => c.value),
+      });
+      setProducts(res.data.products);
+      setTotalPages(res.data.totalPages);
+    } catch {
+      toast.error("Error loading products");
+    }
+  };
+
+  useEffect(() => {
+    if (!showForm) {
+      loadProducts();
+    }
+  }, [page, filters, showForm]);
+
+  const handleAddProduct = async (productData) => {
+    try {
+      await createProduct(productData);
+      toast.success("Product added successfully");
+      setShowForm(false);
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Error adding product");
+    }
+  };
+
+  const handleDeleteProduct = async (id) => {
+    if (!window.confirm("Are you sure?")) return;
+    try {
+      await deleteProduct(id);
+      toast.success("Product deleted");
+      loadProducts();
+    } catch {
+      toast.error("Failed to delete");
+    }
+  };
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
+    <div className="container py-4">
+      <ToastContainer position="top-right" autoClose={3000} />
+
+      <div className="d-flex justify-content-between align-items-center mb-3">
+        <h2 className="text-center flex-grow-1">🛒 Product Inventory</h2>
+        <button
+          className={`btn ${
+            showForm ? "btn-outline-secondary" : "btn-success"
+          }`}
+          onClick={() => setShowForm(!showForm)}
+        >
+          {showForm ? "Close" : "➕ Add Product"}
         </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
       </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+
+      {showForm ? (
+        <ProductForm onAdd={handleAddProduct} />
+      ) : (
+        <ProductGrid
+          products={products}
+          onDelete={handleDeleteProduct}
+          filters={filters}
+          setFilters={setFilters}
+          page={page}
+          setPage={setPage}
+          totalPages={totalPages}
+        />
+      )}
+    </div>
+  );
 }
 
-export default App
+export default App;
